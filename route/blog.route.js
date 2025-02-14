@@ -6,7 +6,7 @@ const {checkAccess} = require("../utils/checkAccessKey")
 
 route.post("/create",blogController.addBlog)
 route.get("/show",blogController.getBlog)
-route.patch("/update",blogController.editBlog)
+route.put("/update",blogController.editBlog)
 route.delete("/delete",blogController.deleteBlog)
 
             
