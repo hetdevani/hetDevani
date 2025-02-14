@@ -1,153 +1,163 @@
-const { Blog } = require("../modal/index.model")
+const { Blog } = require("../modal/index.model");
+const mongoose = require("mongoose");
 
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 exports.addBlog = async (req, res) => {
     try {
-        const { title, content, author, isShow } = req.body
+        const { title, content, author, isShow = true } = req.body;
 
-        if (!title ) {
-            return res.status(404).json({
+        if (!title || !content || !author) {
+            return res.status(400).json({
                 status: false,
-                message: "title field is required"
-            })
+                message: "Title, content, and author fields are required"
+            });
         }
 
-        if (!content ) {
-            return res.status(404).json({
-                status: false,
-                message: "content field is required"
-            })
-        }
-
-        if (!author ) {
-            return res.status(404).json({
-                status: false,
-                message: "author field  is required"
-            })
-        }
-
-
-
-        const blog = new Blog()
-
-        blog.title = title
-        blog.content = content
-        blog.author = author
-        blog.isShow = isShow || 1
-
-        await blog.save()
+        const blog = await Blog.create({ title, content, author, isShow });
 
         return res.status(201).json({
             status: true,
             message: "Blog created successfully",
             blog
-        })
-    } catch (error) {
-         console.log("error",error);
-         return res.status(500).json({
-            status:false,
-            message:"Internal server Error !1"
-         })
-         
-    }
-}
-
-
-exports.getBlog = async (req, res) => {
-    try {
-        const {id} = req.query;
-        let blog;
-
-        if (id) {
-            blog = await Blog.findById(id); 
-
-            if (!blog) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Invalid blog ID!"
-                });
-            }
-        } else {
-            blog = await Blog.find();
-        }
-
-        return res.status(200).json({
-            status: true,
-            message: "Blog(s) retrieved successfully",
-            data: blog
         });
 
     } catch (error) {
         console.error("Error:", error);
         return res.status(500).json({
             status: false,
-            message: "Internal Server Error!"
+            message: "Internal Server Error"
+        });
+    }
+};
+
+exports.getBlog = async (req, res) => {
+    try {
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+        const search = req.query.search || "";
+
+        const fieldsToSearch = ["title", "content", "author"];
+        const matchQuery = search
+            ? {
+                $or: fieldsToSearch.map((field) => ({
+                    [field]: { $regex: search, $options: "i" },
+                })),
+            }
+            : {}; 
+
+        const commonPipeline = [{ $match: matchQuery }];
+
+        const paginationPipeline = [
+            ...commonPipeline,
+            { $sort: { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: limit },
+        ];
+
+        const countPipeline = [
+            ...commonPipeline,
+            { $count: "total" },
+        ];
+
+        const blogTotal = await Blog.aggregate(countPipeline);
+        const totalBlogs = blogTotal.length > 0 ? blogTotal[0].total : 0;
+
+        const blogs = await Blog.aggregate(paginationPipeline);
+
+        return res.status(200).json({
+            status: true,
+            message: "Blogs fetched successfully",
+            blogs,
+            totalBlogs,
+            page,
+            limit,
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+        return res.status(500).json({
+            status: false,
+            message: "Internal Server Error",
         });
     }
 };
 
 
-exports.editBlog = async(req,res)=>{
+exports.editBlog = async (req, res) => {
     try {
-        const { title, content, author, isShow } = req.body
+        const { id } = req.query;
+        const { title, content, author, isShow } = req.body;
 
-        const {id} = req.query
+        if (!isValidObjectId(id)) {
+            return res.status(400).json({
+                status: false,
+                message: "Invalid blog ID format"
+            });
+        }
 
-        const blog = await  Blog.findById(id)
+        const blog = await Blog.findById(id);
+        if (!blog) {
+            return res.status(404).json({
+                status: false,
+                message: "Blog not found"
+            });
+        }
 
-        blog.title = title || blog.title
-        blog.content = content||blog.content
-        blog.author = author ||blog.author
-        blog.isShow = isShow || blog.isShow 
+        blog.title = title ?? blog.title;
+        blog.content = content ?? blog.content;
+        blog.author = author ?? blog.author;
+        blog.isShow = isShow ?? blog.isShow;
 
-        await blog.save()
+        await blog.save();
 
         return res.status(200).json({
             status: true,
-            message: "Blog update successfully",
+            message: "Blog updated successfully",
             blog
-        })
+        });
 
     } catch (error) {
         console.error("Error:", error);
         return res.status(500).json({
             status: false,
-            message: "Internal Server Error!"
+            message: "Internal Server Error"
         });
     }
-}
+};
 
 exports.deleteBlog = async (req, res) => {
     try {
-        const {id} = req.query;
-        if (!id ) {
+        const { id } = req.query;
+
+        if (!isValidObjectId(id)) {
+            return res.status(400).json({
+                status: false,
+                message: "Invalid blog ID format"
+            });
+        }
+
+        const blog = await Blog.findById(id);
+        if (!blog) {
             return res.status(404).json({
                 status: false,
-                message: "id required for delete blog"
-            })
+                message: "Blog not found"
+            });
         }
 
-        const blog  = await Blog.findById(id)
-
-        if (!blog) {
-            return res.status(401).json({
-                status:false,
-                message:"Invalid blog id"
-            })
-        }
-
-        await blog.deleteOne()
+        await blog.deleteOne();
 
         return res.status(200).json({
             status: true,
-            message: "Blog delete successfully",
+            message: "Blog deleted successfully"
         });
 
     } catch (error) {
         console.error("Error:", error);
         return res.status(500).json({
             status: false,
-            message: "Internal Server Error!"
+            message: "Internal Server Error"
         });
     }
 };
