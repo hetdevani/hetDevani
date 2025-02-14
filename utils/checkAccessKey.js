@@ -4,7 +4,7 @@ exports.checkAccess = async (req, res, next) => {
         console.log('key :>> ', key);
         
         if (key) {
-            if (key === process.env.KEY) { 
+            if (key === process.env.key) { 
                 return next();
             } else {
                 return res.status(401).json({ message: "Unauthorized access!" });
