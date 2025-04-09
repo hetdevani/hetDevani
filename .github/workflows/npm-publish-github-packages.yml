@@ -28,7 +28,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_KEY }}
           script: |
-            cd /home/ubuntu/app
+            cd /home/ubuntu/index
             echo "PORT=3000" > .env
             npm install
             pm2 start index.js --name hetApp || pm2 restart hetApp
