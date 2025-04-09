@@ -5,7 +5,7 @@ const blogController = require("../controller/blogController")
 const {checkAccess} = require("../utils/checkAccessKey")
 
 route.post("/create",blogController.addBlog)
-route.get("/show",blogController.getBlog)
+// route.get("/show",blogController.getBlog)
 route.put("/update",blogController.editBlog)
 route.delete("/delete",blogController.deleteBlog)
 
